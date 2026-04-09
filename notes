@@ -1,0 +1,6 @@
+# build apk using expo
+eas build --platform android
+
+# build apk locally
+eas build --platform android --local
+eas build -p android --profile preview

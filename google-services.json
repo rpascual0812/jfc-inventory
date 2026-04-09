@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "9887388027",
+    "project_id": "jfc-inventory",
+    "storage_bucket": "jfc-inventory.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:9887388027:android:d5b6f96bf18b1343c4edde",
+        "android_client_info": {
+          "package_name": "com.rpascual0812.jfcinventory"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCE46L5aWWjh8k1STAg5L2lnh2l0621vqk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
