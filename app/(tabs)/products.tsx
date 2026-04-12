@@ -45,12 +45,18 @@ export default function ProductScreen() {
     fetchItems();
 
     const handleEdit = (item: any) => {
-        item.consumeUntil = moment(item.consumeUntil.toDate()).format('DD MMMM, YYYY');
+        item.productName = item.productName.toString();
+        item.consumeUntil = item.consumeUntil ? moment(item.consumeUntil.toDate()).format('DD MMMM, YYYY') : '';
+        item.batchCode = item.batchCode.toString();
         item.beginningQty = item.beginningQty.toString();
         item.receivedQty = item.receivedQty.toString();
+        item.transferIn = item.transferIn.toString();
+        item.transferOut = item.transferOut.toString();
         item.endingInventory = item.endingInventory.toString();
         item.dailyUsage = item.dailyUsage.toString();
         item.ordering = item.ordering.toString();
+        item.unitOfMeasurement = item.unitOfMeasurement.toString();
+
         setItem(item);
         setModalVisible(true);
         // Implementation for edit functionality
@@ -77,7 +83,6 @@ export default function ProductScreen() {
     };
 
     const productUpdated = () => {
-        console.log('submitted');
         setModalVisible(false);
         Toast.show({
             type: 'success', // or 'error', 'info'
@@ -100,7 +105,7 @@ export default function ProductScreen() {
                             <View>
                                 <Text style={styles.itemTitle}>Product: {item.productName} ({item.unitOfMeasurement})</Text>
                                 <Text style={styles.itemDescription}>Batch Code: {item.batchCode}</Text>
-                                <Text style={styles.itemDescription}>CU: {moment(item.consumeUntil.toDate()).format('LLLL')}</Text>
+                                <Text style={styles.itemDescription}>CU: {item.consumeUntil ? moment(item?.consumeUntil.toDate()).format('LLLL') : ''}</Text>
                                 <Text style={styles.itemDescription}>Qty: {item.receivedQty}</Text>
                             </View>
                             <View style={{ flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-end', flex: 1 }}>

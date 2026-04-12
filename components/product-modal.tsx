@@ -1,10 +1,13 @@
 import moment from 'moment';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import CustomButton from './custom-button';
 import CustomInput from './custom-input';
+
+import { collection, doc, setDoc, Timestamp } from 'firebase/firestore';
+import { db } from '../FirebaseConfig';
 
 interface ProductModalProps {
     data?: any;
@@ -13,17 +16,30 @@ interface ProductModalProps {
     submitted: () => void
 }
 
-const ProductModal = ({ data, isModalVisible, closeModal, submitted }: ProductModalProps) => {
-    // const [item, setItem] = useState<any>(data || {});
-    const [date, setDate] = useState(new Date());
-    const formattedDate = data?.consumeUntil || moment(date).format('DD MMMM, YYYY');
+interface Item {
+    id: string | undefined;
+    productName: string;
+    consumeUntil: string;
+    batchCode: string;
+    beginningQty: number;
+    receivedQty: number;
+    transferIn: string;
+    transferOut: string;
+    endingInventory: number;
+    dailyUsage: number;
+    ordering: number;
+    unitOfMeasurement: string;
+}
 
+const ProductModal = ({ data, isModalVisible, closeModal, submitted }: ProductModalProps) => {
+    const [date, setDate] = useState(new Date());
+    const formattedDate = data?.consumeUntil ? moment(data?.consumeUntil, 'DD MMMM, YYYY').format('YYYY-MM-DD 00:00:00') : moment(date).format('DD MMMM, YYYY');
+    console.log('saving data: ', data?.id, formattedDate, data);
     const { control, reset, handleSubmit, formState: { errors } } = useForm({
         // defaultValues: {
         //     productName: data?.productName || '',
-        //     // consumeUntil: moment(data?.consumeUntil.toDate()).format('DD MMMM, YYYY') || moment(new Date()).format('DD MMMM, YYYY'),
         //     consumeUntil: formattedDate,
-        //     batchCode: data?.beginningQty || '',
+        //     batchCode: data?.batchCode || '',
         //     beginningQty: data?.beginningQty || '',
         //     receivedQty: data?.receivedQty || '',
         //     transferIn: data?.transferIn || '',
@@ -39,73 +55,32 @@ const ProductModal = ({ data, isModalVisible, closeModal, submitted }: ProductMo
         reset(data || {});
     }, [data, reset]);
 
-    // const [items, setItems] = useState<any>([]);
-    // const itemsCollection = collection(db, 'items');
-
-    // const fetchItems = async () => {
-    //     try {
-    //         const q = query(itemsCollection);
-    //         const data = await getDocs(q);
-    //         setItems(data.docs.map((doc) => ({ ...doc.data(), id: doc.id })));
-    //         // const querySnapshot = await getDocs(itemsCollection);
-    //         // const items: any[] = [];
-    //         // querySnapshot.forEach((doc) => {
-    //         //     items.push({ id: doc.id, ...doc.data() });
-    //         // });
-    //         console.log('Items: ', items);
-
-    //     } catch (e) {
-    //         console.error('Error fetching documents: ', e);
-    //     }
-    // }
-
-    // fetchItems();
-
-
-    // const testUpdate = () => {
-    //     firestore()
-    //         .collection('items')
-    //         .doc('pfR8DUTPij8XEoOErP1s')
-    //         .update({
-    //             productName: 'Sample Product',
-    //             consumeUntil: '2024-12-31',
-    //             batchCode: 'BATCH123',
-    //             beginningQty: 100,
-    //             receivedQty: 50,
-    //             transferIn: 20,
-    //             transferOut: 10,
-    //             endingInventory: 160,
-    //             dailyUsage: 5,
-    //             ordering: 30,
-    //             unitOfMeasurement: 'Packs',
-    //             createdAt: firestore.FieldValue.serverTimestamp(),
-    //         })
-    //         .then(() => {
-    //             console.log('Document successfully updated!');
-    //         })
-    //         .catch((error) => {
-    //             console.error('Error updating document: ', error);
-    //         });
-    // }
-
-    const addItem = () => {
-        // firestore().collection('items').add({
-        //     productName: 'Sample Product',
-        //     consumeUntil: '2024-12-31',
-        //     batchCode: 'BATCH123',
-        //     beginningQty: 100,
-        //     receivedQty: 50,
-        //     transferIn: 20,
-        //     transferOut: 10,
-        //     endingInventory: 160,
-        //     dailyUsage: 5,
-        //     ordering: 30,
-        //     unitOfMeasurement: 'Packs',
-        //     createdAt: firestore.FieldValue.serverTimestamp(),
-        // })
+    let docRefId = data?.id || null;
+    const newDocRef = doc(collection(db, "items")); // Automatically generate a unique ID for the new document
+    if (data && !data.id) {
+        docRefId = newDocRef.id;
     }
 
-
+    const addItem = async (data: Item) => {
+        const consumeUntil = new Date(formattedDate);
+        await setDoc(doc(db, "items", docRefId), {
+            productName: data.productName,
+            consumeUntil: Timestamp.fromDate(consumeUntil),
+            batchCode: data.batchCode,
+            beginningQty: data.beginningQty,
+            receivedQty: data.receivedQty,
+            transferIn: data.transferIn,
+            transferOut: data.transferOut,
+            endingInventory: data.endingInventory,
+            dailyUsage: data.dailyUsage,
+            ordering: data.ordering,
+            unitOfMeasurement: data.unitOfMeasurement,
+            createdAt: Timestamp.fromDate(new Date()),
+        }).then(() => console.log('Document successfully written!'))
+            .catch((error) => {
+                console.error('Error writing document: ', error);
+            });
+    }
 
     const { width } = useWindowDimensions();
 
@@ -113,47 +88,18 @@ const ProductModal = ({ data, isModalVisible, closeModal, submitted }: ProductMo
         closeModal();
     };
 
-
-
-
-
     const onSubmit = async (data: any) => {
-        data.cu = moment(formattedDate, 'DD MMMM, YYYY').format('YYYY-MM-DD');
+        data.cu = moment(formattedDate, 'DD MMMM, YYYY').format('YYYY-MM-DD 00:00:00');
         console.log(data);
-        // addItem();
-        // const docRef = await firestore
-        //     .collection('items') // Reference to your collection
-        //     .add({
-        //         ...data,
-        //         createdAt: Timestamp.now(),
-        //     });
-        // console.log('Document written with ID: ', docRef.id);
-        // reset();
-        // try {
-        //     const docRef = await firestore()
-        //         .collection('todos') // Reference to your collection
-        //         .add({
-        //             ...data,
-        //             isComplete: false,
-        //             createdAt: firestore.FieldValue.serverTimestamp(),
-        //         });
-        //     console.log('Document written with ID: ', docRef.id);
-        // } catch (e) {
-        //     console.error('Error adding document: ', e);
-        // }
-
+        addItem(data);
         submitted();
     };
-
-
 
     const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
 
     const showDatePicker = () => {
         setDatePickerVisibility(true);
     };
-
-
 
     const hideDatePicker = () => {
         setDatePickerVisibility(false);
