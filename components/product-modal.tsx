@@ -6,8 +6,7 @@ import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import CustomButton from './custom-button';
 import CustomInput from './custom-input';
 
-import { collection, doc, setDoc, Timestamp } from 'firebase/firestore';
-import { db } from '../FirebaseConfig';
+import FireStoreService from '@/services/FireStore';
 
 interface ProductModalProps {
     data?: any;
@@ -33,54 +32,13 @@ interface Item {
 
 const ProductModal = ({ data, isModalVisible, closeModal, submitted }: ProductModalProps) => {
     const [date, setDate] = useState(new Date());
-    const formattedDate = data?.consumeUntil ? moment(data?.consumeUntil, 'DD MMMM, YYYY').format('YYYY-MM-DD 00:00:00') : moment(date).format('DD MMMM, YYYY');
-    console.log('saving data: ', data?.id, formattedDate, data);
-    const { control, reset, handleSubmit, formState: { errors } } = useForm({
-        // defaultValues: {
-        //     productName: data?.productName || '',
-        //     consumeUntil: formattedDate,
-        //     batchCode: data?.batchCode || '',
-        //     beginningQty: data?.beginningQty || '',
-        //     receivedQty: data?.receivedQty || '',
-        //     transferIn: data?.transferIn || '',
-        //     transferOut: data?.transferOut || '',
-        //     endingInventory: data?.endingInventory || '',
-        //     dailyUsage: data?.dailyUsage || '',
-        //     ordering: data?.ordering || '',
-        //     unitOfMeasurement: data?.unitOfMeasurement || ''
-        // }
-    });
+    const formattedDate = data?.consumeUntil ?? moment(date).format('DD MMMM, YYYY');
+    // console.log('saving data: ', data?.id, formattedDate, data);
+    const { control, reset, handleSubmit, formState: { errors } } = useForm();
 
     useEffect(() => {
         reset(data || {});
     }, [data, reset]);
-
-    let docRefId = data?.id || null;
-    const newDocRef = doc(collection(db, "items")); // Automatically generate a unique ID for the new document
-    if (data && !data.id) {
-        docRefId = newDocRef.id;
-    }
-
-    const addItem = async (data: Item) => {
-        const consumeUntil = new Date(formattedDate);
-        await setDoc(doc(db, "items", docRefId), {
-            productName: data.productName,
-            consumeUntil: Timestamp.fromDate(consumeUntil),
-            batchCode: data.batchCode,
-            beginningQty: data.beginningQty,
-            receivedQty: data.receivedQty,
-            transferIn: data.transferIn,
-            transferOut: data.transferOut,
-            endingInventory: data.endingInventory,
-            dailyUsage: data.dailyUsage,
-            ordering: data.ordering,
-            unitOfMeasurement: data.unitOfMeasurement,
-            createdAt: Timestamp.fromDate(new Date()),
-        }).then(() => console.log('Document successfully written!'))
-            .catch((error) => {
-                console.error('Error writing document: ', error);
-            });
-    }
 
     const { width } = useWindowDimensions();
 
@@ -89,10 +47,11 @@ const ProductModal = ({ data, isModalVisible, closeModal, submitted }: ProductMo
     };
 
     const onSubmit = async (data: any) => {
-        data.cu = moment(formattedDate, 'DD MMMM, YYYY').format('YYYY-MM-DD 00:00:00');
-        console.log(data);
-        addItem(data);
+        data.consumeUntil = moment(formattedDate, 'DD MMMM, YYYY').format('YYYY-MM-DD 00:00:00');
+        FireStoreService().saveItem(data);
         submitted();
+        reset();
+        closeModal();
     };
 
     const [isDatePickerVisible, setDatePickerVisibility] = useState(false);

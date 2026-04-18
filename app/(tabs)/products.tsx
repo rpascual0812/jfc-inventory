@@ -12,9 +12,9 @@ import {
 
 import CustomIconButton from '@/components/custom-icon-button';
 import ProductModal from '@/components/product-modal';
-import { collection, getDocs, query } from 'firebase/firestore';
+import ProductQrModal from '@/components/product-qr-modal';
+import FireStoreService from '@/services/FireStore';
 import Toast from 'react-native-toast-message';
-import { db } from '../../FirebaseConfig';
 
 // Custom Fancy List Item Component
 const FancyListItem = ({ item, onPress }: { item: any; onPress: any }) => (
@@ -28,15 +28,17 @@ const FancyListItem = ({ item, onPress }: { item: any; onPress: any }) => (
 );
 
 export default function ProductScreen() {
-    const [modalVisible, setModalVisible] = useState(false);
+    const [productModalVisible, setProductModalVisible] = useState(false);
     const [items, setItems] = useState<any>([]);
     const [item, setItem] = useState<any>({});
-    const itemsCollection = collection(db, 'items');
+
+    const [productQrModalVisible, setProductQrModalVisible] = useState(false);
+    const [qrValue, setQrValue] = useState<any>({});
+
     const fetchItems = async () => {
         try {
-            const q = query(itemsCollection);
-            const data = await getDocs(q);
-            setItems(data.docs.map((doc) => ({ ...doc.data(), id: doc.id })));
+            const data = await FireStoreService().getItems();
+            setItems(data);
         } catch (e) {
             console.error('Error fetching documents: ', e);
         }
@@ -58,32 +60,53 @@ export default function ProductScreen() {
         item.unitOfMeasurement = item.unitOfMeasurement.toString();
 
         setItem(item);
-        setModalVisible(true);
+        setProductModalVisible(true);
+
         // Implementation for edit functionality
     };
 
     const handleDelete = (id: string) => {
-        console.log('Delete item with id: ', id);
-        deleteAlert();
+        console.log('Deleting item with id: ', id);
+        deleteAlert(id);
         // Implementation for delete functionality
     };
 
-    const deleteAlert = () =>
+    const deleteAlert = (id: string) =>
         Alert.alert('Please confirm', 'Are you sure you want to delete this product?', [
             {
                 text: 'Cancel',
                 onPress: () => console.log('Cancel Pressed'),
                 style: 'cancel',
             },
-            { text: 'Delete', onPress: () => console.log('OK Pressed') },
+            {
+                text: 'Delete', onPress: () => {
+                    FireStoreService().deleteItem(id);
+                    Toast.show({
+                        type: 'success', // or 'error', 'info'
+                        text1: 'Success',
+                        text2: 'Product deleted successfully!',
+                        visibilityTime: 4000, // duration in milliseconds
+                    });
+                }
+            },
         ]);
 
-    const toggleModal = (status: boolean) => {
-        setModalVisible(status);
+    const handleShowQr = (item: any) => {
+        console.log('Showing item: ', item);
+        setProductQrModalVisible(true);
+        setQrValue(item.id);
+    };
+
+    const toggleProductModal = (status: boolean) => {
+        setProductModalVisible(status);
+    };
+
+    const toggleProductQrModal = (status: boolean) => {
+        setProductQrModalVisible(status);
     };
 
     const productUpdated = () => {
-        setModalVisible(false);
+        setProductModalVisible(false);
         Toast.show({
             type: 'success', // or 'error', 'info'
             text1: 'Success',
@@ -100,7 +123,7 @@ export default function ProductScreen() {
             <FlatList
                 data={items}
                 renderItem={({ item }) => (
-                    <View style={styles.itemContainer}>
+                    <TouchableOpacity style={styles.itemContainer} onPress={() => handleShowQr(item)}>
                         <View style={{ flexDirection: 'row', justifyContent: 'flex-start' }}>
                             <View>
                                 <Text style={styles.itemTitle}>Product: {item.productName} ({item.unitOfMeasurement})</Text>
@@ -121,16 +144,23 @@ export default function ProductScreen() {
                                 />
                             </View>
                         </View>
-                    </View>
+                    </TouchableOpacity>
                 )}
                 contentContainerStyle={styles.listContainer}
             />
             <ProductModal
                 data={item}
-                isModalVisible={modalVisible}
-                closeModal={() => toggleModal(false)}
+                isModalVisible={productModalVisible}
+                closeModal={() => toggleProductModal(false)}
                 submitted={() => productUpdated()}
             ></ProductModal>
+
+            <ProductQrModal
+                data={item}
+                isModalVisible={productQrModalVisible}
+                closeModal={() => toggleProductQrModal(false)}
+                value={qrValue}
+            ></ProductQrModal>
         </View>
     );
 }
