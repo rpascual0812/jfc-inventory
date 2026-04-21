@@ -2,6 +2,7 @@ import moment from 'moment';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import DropDownPicker from 'react-native-dropdown-picker';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import CustomButton from './custom-button';
 import CustomInput from './custom-input';
@@ -35,6 +36,15 @@ const ProductModal = ({ data, isModalVisible, closeModal, submitted }: ProductMo
     const formattedDate = data?.consumeUntil ?? moment(date).format('DD MMMM, YYYY');
     // console.log('saving data: ', data?.id, formattedDate, data);
     const { control, reset, handleSubmit, formState: { errors } } = useForm();
+
+    const [openType, setOpenType] = useState(false);
+    const [typeValue, setTypeValue] = useState('receiving');
+    const [typeList, setTypeList] = useState([
+        { label: 'Receiving', value: 'receiving' },
+        { label: 'Transfer In', value: 'transferIn' },
+        { label: 'Transfer Out', value: 'transferOut' },
+        { label: 'Ordering', value: 'ordering' }
+    ]);
 
     useEffect(() => {
         reset(data || {});
@@ -85,7 +95,23 @@ const ProductModal = ({ data, isModalVisible, closeModal, submitted }: ProductMo
                     <View style={modalStyles.modalContent}>
                         {/* Modal Body */}
                         <View style={modalStyles.modalBody}>
-                            <Text style={modalStyles.label}>Product Name</Text>
+                            <Text style={modalStyles.label}>Type</Text>
+                            <View style={{ zIndex: 1000 }}>
+                                <DropDownPicker
+                                    listMode="SCROLLVIEW"
+                                    open={openType}
+                                    value={typeValue}
+                                    items={typeList}
+                                    setOpen={setOpenType}
+                                    setValue={setTypeValue}
+                                    setItems={setTypeList}
+
+                                    multiple={false}
+                                    badgeDotColors={["#e76f51", "#00b4d8", "#e9c46a", "#e76f51", "#8ac926", "#00b4d8", "#e9c46a"]}
+                                />
+                            </View>
+
+                            <Text style={[modalStyles.label, { marginTop: 30 }]}>Product Name</Text>
                             <Controller
                                 control={control}
                                 name="productName"
@@ -190,48 +216,6 @@ const ProductModal = ({ data, isModalVisible, closeModal, submitted }: ProductMo
                                         <CustomInput placeholder="" onChangeText={onChange} onBlur={onBlur} value={value} keyboardType="numeric" containerStyle={errors.receivedQty ? modalStyles.childInputContainerError : modalStyles.childInputContainer} />
                                         {errors.receivedQty && (
                                             <Text style={modalStyles.errorText}>{typeof errors.receivedQty.message === 'string' ? errors.receivedQty.message : ''}</Text>
-                                        )}
-                                    </View>
-                                )}
-                            />
-
-                            <Text style={modalStyles.label}>Transfer In</Text>
-                            <Controller
-                                control={control}
-                                name="transferIn"
-                                rules={{
-                                    required: "* Transfer In is required",
-                                    maxLength: {
-                                        value: 250,
-                                        message: "Transfer In cannot exceed 250 characters",
-                                    },
-                                }}
-                                render={({ field: { onChange, onBlur, value } }) => (
-                                    <View style={modalStyles.inputContainer}>
-                                        <CustomInput placeholder="" onChangeText={onChange} onBlur={onBlur} value={value} containerStyle={errors.transferIn ? modalStyles.childInputContainerError : modalStyles.childInputContainer} />
-                                        {errors.transferIn && (
-                                            <Text style={modalStyles.errorText}>{typeof errors.transferIn.message === 'string' ? errors.transferIn.message : ''}</Text>
-                                        )}
-                                    </View>
-                                )}
-                            />
-
-                            <Text style={modalStyles.label}>Transfer Out</Text>
-                            <Controller
-                                control={control}
-                                name="transferOut"
-                                rules={{
-                                    required: "* Transfer Out is required",
-                                    maxLength: {
-                                        value: 250,
-                                        message: "Transfer Out cannot exceed 250 characters",
-                                    },
-                                }}
-                                render={({ field: { onChange, onBlur, value } }) => (
-                                    <View style={modalStyles.inputContainer}>
-                                        <CustomInput placeholder="" onChangeText={onChange} onBlur={onBlur} value={value} containerStyle={errors.transferOut ? modalStyles.childInputContainerError : modalStyles.childInputContainer} />
-                                        {errors.transferOut && (
-                                            <Text style={modalStyles.errorText}>{typeof errors.transferOut.message === 'string' ? errors.transferOut.message : ''}</Text>
                                         )}
                                     </View>
                                 )}

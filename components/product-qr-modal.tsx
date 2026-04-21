@@ -1,7 +1,9 @@
+import { File } from 'expo-file-system';
 import * as Print from 'expo-print';
 import { useRef } from 'react';
-import { Modal, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
+import ViewShot from 'react-native-view-shot';
 import CustomButton from './custom-button';
 import CustomIconButton from './custom-icon-button';
 
@@ -9,10 +11,12 @@ interface ProductQrModalProps {
     data?: any;
     isModalVisible: boolean;
     closeModal: () => void;
-    value: string
+    item: any
 }
 
-const ProductQrModal = ({ data, isModalVisible, closeModal, value }: ProductQrModalProps) => {
+const ProductQrModal = ({ data, isModalVisible, closeModal, item }: ProductQrModalProps) => {
+    console.log('ProductQrModal item:', item);
+    const viewShotRef = useRef<any>(null);
     const qrRef = useRef<any>(null);
     const { width } = useWindowDimensions();
 
@@ -20,15 +24,29 @@ const ProductQrModal = ({ data, isModalVisible, closeModal, value }: ProductQrMo
         closeModal();
     };
 
-    const handlePrint = () => {
-        qrRef.current?.toDataURL((data: string) => {
-            Print.printAsync({
-                html: `
-                <div style="display: flex; justify-content: center; align-items: center;">
-                    <img src="data:image/jpeg;base64,${data}" width="300" height="300"/>
-                </div>
-                `
-            });
+    const handlePrint = async () => {
+        const uri = await viewShotRef.current.capture({
+            width: 300,
+            height: 300,
+            quality: 0.7,
+            format: 'png',
+        });
+        console.log('Captured URI: ', uri);
+
+        // Create a File instance
+        const file = new File(uri);
+
+        // Read as base64
+        const base64 = await file.base64();
+
+        console.log('Base64 string length: ', base64);
+
+        await Print.printAsync({
+            html: `
+            <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: auto;">
+                <img src="data:image/png;base64,${base64}" width="100%" height="100%"/>
+            </div>
+            `
         });
     };
 
@@ -47,6 +65,7 @@ const ProductQrModal = ({ data, isModalVisible, closeModal, value }: ProductQrMo
                 >
                     <View style={modalStyles.modalContent}>
                         {/* Modal Header with Custom Buttons */}
+
                         <View style={modalStyles.modalHeader}>
                             <CustomIconButton
                                 onPress={() => handleClose()}
@@ -55,13 +74,16 @@ const ProductQrModal = ({ data, isModalVisible, closeModal, value }: ProductQrMo
                             />
                         </View>
                         {/* Modal Body */}
-                        <View style={modalStyles.modalBody}>
-                            <QRCode
-                                value={'view,' + value}
-                                size={300}
-                                getRef={(c) => (qrRef.current = c)}
-                            />
-                        </View>
+                        <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 0.9 }}>
+                            <View style={modalStyles.modalBody}>
+                                <QRCode
+                                    value={'view,' + item.id}
+                                    size={300}
+                                    getRef={(c) => (qrRef.current = c)}
+                                />
+                                <Text style={{ fontSize: 25, fontWeight: 'bold', textAlign: 'center', color: 'black', marginBottom: 20 }}>{item.productName}</Text>
+                            </View>
+                        </ViewShot>
                         <CustomButton
                             title="Print QR Code"
                             onPress={handlePrint}

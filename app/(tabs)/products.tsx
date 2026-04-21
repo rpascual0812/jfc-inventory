@@ -33,7 +33,7 @@ export default function ProductScreen() {
     const [item, setItem] = useState<any>({});
 
     const [productQrModalVisible, setProductQrModalVisible] = useState(false);
-    const [qrValue, setQrValue] = useState<any>({});
+    const [qrItem, setQrItem] = useState<any>({});
 
     const fetchItems = async () => {
         try {
@@ -66,7 +66,6 @@ export default function ProductScreen() {
     };
 
     const handleDelete = (id: string) => {
-        console.log('Deleting item with id: ', id);
         deleteAlert(id);
         // Implementation for delete functionality
     };
@@ -92,9 +91,8 @@ export default function ProductScreen() {
         ]);
 
     const handleShowQr = (item: any) => {
-        console.log('Showing item: ', item);
         setProductQrModalVisible(true);
-        setQrValue(item.id);
+        setQrItem(item);
     };
 
     const toggleProductModal = (status: boolean) => {
@@ -159,7 +157,7 @@ export default function ProductScreen() {
                 data={item}
                 isModalVisible={productQrModalVisible}
                 closeModal={() => toggleProductQrModal(false)}
-                value={qrValue}
+                item={qrItem}
             ></ProductQrModal>
         </View>
     );
