@@ -1,50 +1,58 @@
-import { File } from 'expo-file-system';
-import * as Print from 'expo-print';
-import { useRef } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import QRCode from 'react-native-qrcode-svg';
-import ViewShot from 'react-native-view-shot';
-import CustomButton from './custom-button';
-import CustomIconButton from './custom-icon-button';
+import FireStoreService from "@/services/FireStore";
+import moment from "moment";
+import { useState } from "react";
+import { Modal, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import Toast from "react-native-toast-message";
+import CustomButton from "./custom-button";
+import CustomIconButton from "./custom-icon-button";
 
-interface ProductQrModalProps {
-    data?: any;
+
+interface ScannedProductModalProps {
+    id: string | null;
     isModalVisible: boolean;
     closeModal: () => void;
-    item: any
 }
 
-const ProductQrModal = ({ data, isModalVisible, closeModal, item }: ProductQrModalProps) => {
-    const viewShotRef = useRef<any>(null);
-    const qrRef = useRef<any>(null);
+export default function ScannedProductModalScreen({ id, isModalVisible, closeModal }: ScannedProductModalProps) {
+    const [item, setItem] = useState<any | null>(null);
     const { width } = useWindowDimensions();
 
     const handleClose = () => {
         closeModal();
     };
 
-    const handlePrint = async () => {
-        const uri = await viewShotRef.current.capture({
-            width: 300,
-            height: 300,
-            quality: 0.7,
-            format: 'png',
-        });
+    const handleSave = async () => {
+        try {
+            await FireStoreService().received(item.id);
 
-        // Create a File instance
-        const file = new File(uri);
+            Toast.show({
+                type: 'success', // or 'error', 'info'
+                text1: 'Success',
+                text2: 'Product received successfully!',
+                visibilityTime: 4000, // duration in milliseconds
+            });
+        } catch (e) {
+            console.error('Error fetching document: ', e);
+        }
 
-        // Read as base64
-        const base64 = await file.base64();
-
-        await Print.printAsync({
-            html: `
-            <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: auto;">
-                <img src="data:image/png;base64,${base64}" width="100%" height="100%"/>
-            </div>
-            `
-        });
+        closeModal();
     };
+
+    const fetchItem = async (id: string) => {
+        try {
+            const data = await FireStoreService().getOne(id);
+            setItem(data);
+        } catch (e) {
+            console.error('Error fetching document: ', e);
+        }
+    }
+
+    if (id) {
+        fetchItem(id);
+    }
+
+    const consumedUntilformatted = moment.unix(item?.consumeUntil.seconds).format('YYYY-MM-DD');
+    // console.log('item', id, item);
 
     return (
         <Modal
@@ -70,19 +78,19 @@ const ProductQrModal = ({ data, isModalVisible, closeModal, item }: ProductQrMod
                             />
                         </View>
                         {/* Modal Body */}
-                        <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 0.9 }}>
+                        {item && (
                             <View style={modalStyles.modalBody}>
-                                <QRCode
-                                    value={item.id}
-                                    size={300}
-                                    getRef={(c) => (qrRef.current = c)}
-                                />
-                                <Text style={{ fontSize: 25, fontWeight: 'bold', textAlign: 'center', color: 'black', marginBottom: 20 }}>{item.productName}</Text>
+                                <Text style={{ fontSize: 35, fontWeight: 'bold', textAlign: 'center', color: 'black', marginBottom: 25 }}>{item.productName}</Text>
+                                <Text style={{ fontSize: 25, fontWeight: 'normal', textAlign: 'left', color: 'black' }}>Batch Code: {item.batchCode}</Text>
+                                <Text style={{ fontSize: 25, fontWeight: 'normal', textAlign: 'left', color: 'black' }}>Consume Until: {consumedUntilformatted}</Text>
+                                <Text style={{ fontSize: 25, fontWeight: 'normal', textAlign: 'left', color: 'black' }}>Beginning Qty: {item.beginningQty}</Text>
+                                <Text style={{ fontSize: 25, fontWeight: 'normal', textAlign: 'left', color: 'black' }}>Received Qty: {item.receivedQty}</Text>
                             </View>
-                        </ViewShot>
+                        )}
+
                         <CustomButton
-                            title="Print QR Code"
-                            onPress={handlePrint}
+                            title="Continue"
+                            onPress={handleSave}
                             style={{ backgroundColor: '#f44336' }} // Custom cancel button style
                         />
 
@@ -91,8 +99,7 @@ const ProductQrModal = ({ data, isModalVisible, closeModal, item }: ProductQrMod
             </View>
         </Modal >
     );
-};
-
+}
 
 const modalStyles = StyleSheet.create({
 
@@ -183,5 +190,3 @@ const modalStyles = StyleSheet.create({
         borderRadius: 8,
     },
 });
-
-export default ProductQrModal;

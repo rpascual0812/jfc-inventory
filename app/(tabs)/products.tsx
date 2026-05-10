@@ -3,7 +3,6 @@ import { useState } from 'react';
 import {
     Alert,
     FlatList,
-    Image,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -15,17 +14,6 @@ import ProductModal from '@/components/product-modal';
 import ProductQrModal from '@/components/product-qr-modal';
 import FireStoreService from '@/services/FireStore';
 import Toast from 'react-native-toast-message';
-
-// Custom Fancy List Item Component
-const FancyListItem = ({ item, onPress }: { item: any; onPress: any }) => (
-    <TouchableOpacity style={styles.itemContainer} onPress={onPress}>
-        <Image source={{ uri: item.imageUrl }} style={styles.itemImage} />
-        <View style={styles.textContainer}>
-            <Text style={styles.itemTitle}>{item.title}</Text>
-            <Text style={styles.itemDescription}>{item.description}</Text>
-        </View>
-    </TouchableOpacity>
-);
 
 export default function ProductScreen() {
     const [productModalVisible, setProductModalVisible] = useState(false);

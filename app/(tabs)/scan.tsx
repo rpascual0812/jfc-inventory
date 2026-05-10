@@ -1,3 +1,4 @@
+import ScannedProductModalScreen from "@/components/scanned-product-modal";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useState } from "react";
 import { Button, Text, View } from "react-native";
@@ -5,6 +6,7 @@ import { Button, Text, View } from "react-native";
 export default function HomeScreen() {
     const [scannedData, setScannedData] = useState<string | null>(null);
     const [permission, requestPermission] = useCameraPermissions();
+    const [scannedProductModalVisible, setScannedProductModalVisible] = useState(false);
 
     if (!permission) {
         // Camera permissions are not granted yet.
@@ -24,7 +26,9 @@ export default function HomeScreen() {
 
     const handleBarCodeScanned = ({ type, data }: { type: string; data: string }) => {
         setScannedData(data);
-        console.log(`Scanned type: ${type}, Scanned data: ${data}`);
+        // console.log(`Scanned type: ${type}, Scanned data: ${data}`);
+
+        setScannedProductModalVisible(true);
         // You can add logic here to navigate or process the data
     };
 
@@ -42,6 +46,15 @@ export default function HomeScreen() {
                     />
                 )}
             </CameraView>
+
+            <ScannedProductModalScreen
+                id={scannedData}
+                isModalVisible={scannedProductModalVisible}
+                closeModal={() => {
+                    setScannedData(null);
+                    setScannedProductModalVisible(false);
+                }}
+            ></ScannedProductModalScreen>
         </View>
     );
 }

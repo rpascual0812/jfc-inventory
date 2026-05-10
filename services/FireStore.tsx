@@ -1,8 +1,9 @@
-import { collection, deleteDoc, doc, getDocs, query, setDoc, Timestamp } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, Timestamp } from "firebase/firestore";
 import moment from 'moment';
 import { db } from '../FirebaseConfig';
 
 const itemCollection = process.env.EXPO_PUBLIC_ITEM_COLLECTION || 'items';
+const receivedCollection = process.env.EXPO_PUBLIC_RECEIVED_COLLECTION || 'received';
 
 export default function FireStoreService() {
     const getItems = async () => {
@@ -14,6 +15,26 @@ export default function FireStoreService() {
         } catch (e) {
             console.error('Error fetching documents: ', e);
             return [];
+        }
+    };
+
+    const getOne = async (id: string) => {
+        try {
+            const docRef = doc(db, itemCollection, id);
+            const data = await getDoc(docRef);
+
+            if (data.exists()) {
+                return {
+                    ...data.data(),
+                    id: data.id,
+                };
+            } else {
+                console.log('No such document!');
+                return null;
+            }
+        } catch (e) {
+            console.error('Error fetching document: ', e);
+            return null;
         }
     };
 
@@ -49,5 +70,58 @@ export default function FireStoreService() {
         await deleteDoc(doc(db, itemCollection, id));
     };
 
-    return { getItems, saveItem, deleteItem };
+    const received = async (itemId: string) => {
+        const receivedDocRef = doc(collection(db, receivedCollection));
+
+        await setDoc(receivedDocRef, {
+            itemId,
+            createdAt: Timestamp.fromDate(new Date()),
+        }).then(() => console.log('Document successfully written!'))
+            .catch((error) => {
+                console.error('Error writing document: ', error);
+            });
+    };
+
+    const getReceivedWithItem = async () => {
+        try {
+            const ordersSnapshot = await getDocs(collection(db, 'received'));
+
+            const results = await Promise.all(
+                ordersSnapshot.docs.map(async (receivedDoc) => {
+                    const receivedData = receivedDoc.data();
+
+                    let itemData = null;
+
+                    if (receivedData.itemId) {
+                        const itemRef = doc(db, 'items', receivedData.itemId);
+                        const itemSnap = await getDoc(itemRef);
+
+                        if (itemSnap.exists()) {
+                            itemData = {
+                                id: itemSnap.id,
+                                ...itemSnap.data(),
+                            };
+                        }
+                    }
+
+                    return {
+                        id: receivedDoc.id,
+                        ...receivedData,
+                        item: itemData, // LEFT JOIN result
+                    };
+                })
+            );
+
+            return results;
+        } catch (e) {
+            console.error(e);
+            return [];
+        }
+    };
+
+    const deleteReceivedItem = async (id: string) => {
+        await deleteDoc(doc(db, receivedCollection, id));
+    };
+
+    return { getItems, getOne, saveItem, deleteItem, received, getReceivedWithItem, deleteReceivedItem };
 }
