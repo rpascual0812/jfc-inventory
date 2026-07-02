@@ -1,66 +1,151 @@
+import moment from "moment";
+import { useEffect, useState } from "react";
 import {
     FlatList,
-    Image,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from "react-native";
+import { collection, getDocs, query } from "firebase/firestore";
 
-const DATA = [
-    {
-        id: "1",
-        title: "Item 1",
-        description: "This is a description for item 1.",
-        imageUrl: "https://via.placeholder.com",
-    },
-    {
-        id: "2",
-        title: "Item 2",
-        description: "This is a description for item 2.",
-        imageUrl: "https://via.placeholder.com",
-    },
-    {
-        id: "3",
-        title: "Item 3",
-        description: "This is a description for item 3.",
-        imageUrl: "https://via.placeholder.com",
-    },
-];
+import { db } from "../../FirebaseConfig";
 
-// Custom Fancy List Item Component
-const FancyListItem = ({ item, onPress }: { item: any; onPress: any }) => (
-    <TouchableOpacity style={styles.itemContainer} onPress={onPress}>
-        <Image source={{ uri: item.imageUrl }} style={styles.itemImage} />
-        <View style={styles.textContainer}>
-            <Text style={styles.itemTitle}>{item.title}</Text>
-            <Text style={styles.itemDescription}>{item.description}</Text>
-        </View>
-    </TouchableOpacity>
-);
+const getItemReceivedQty = (item: any) =>
+    Number(item?.receivedQuantity ?? item?.receivedQty) || 0;
+
+type AggregatedReceived = {
+    itemId: string;
+    receivedQuantity: number;
+    count: number;
+    item: any | null;
+};
+
+const aggregateByItemId = (
+    receivedDocs: any[],
+    itemsById: Map<string, any>
+): AggregatedReceived[] => {
+    const grouped = new Map<string, { receivedQuantity: number; count: number }>();
+
+    for (const received of receivedDocs) {
+        if (!received.itemId) continue;
+
+        const item = itemsById.get(received.itemId);
+        const qty = getItemReceivedQty(item);
+
+        const existing = grouped.get(received.itemId);
+        if (existing) {
+            existing.receivedQuantity += qty;
+            existing.count += 1;
+        } else {
+            grouped.set(received.itemId, { receivedQuantity: qty, count: 1 });
+        }
+    }
+
+    return Array.from(grouped.entries()).map(([itemId, data]) => ({
+        itemId,
+        receivedQuantity: data.receivedQuantity,
+        count: data.count,
+        item: itemsById.get(itemId) ?? null,
+    }));
+};
+
+const FancyListItem = ({ item, onPress }: { item: AggregatedReceived; onPress: () => void }) => {
+    const product = item.item;
+
+    return (
+        <TouchableOpacity style={styles.itemContainer} onPress={onPress}>
+            <View style={styles.textContainer}>
+                {product ? (
+                    <>
+                        <Text style={styles.itemTitle}>
+                            {product.productName} ({product.unitOfMeasurement})
+                        </Text>
+                        <Text style={styles.itemDescription}>
+                            Batch Code: {product.batchCode}
+                        </Text>
+                        {product.consumeUntil ? (
+                            <Text style={styles.itemDescription}>
+                                CU: {moment(product.consumeUntil.toDate()).format("LLLL")}
+                            </Text>
+                        ) : null}
+                        <Text style={styles.itemDescription}>
+                            Received Qty: {item.receivedQuantity}
+                        </Text>
+                        <Text style={styles.itemDescription}>Count: {item.count}</Text>
+                    </>
+                ) : (
+                    <Text style={styles.itemDescription}>
+                        Item not found (ID: {item.itemId})
+                    </Text>
+                )}
+            </View>
+        </TouchableOpacity>
+    );
+};
 
 export default function ReceivedScreen() {
-    const renderItem = ({ item }: { item: any }) => (
+    const [aggregatedItems, setAggregatedItems] = useState<AggregatedReceived[]>([]);
+    const [totalReceived, setTotalReceived] = useState(0);
+
+    useEffect(() => {
+        const fetchReceived = async () => {
+            try {
+                const [receivedSnapshot, itemsSnapshot] = await Promise.all([
+                    getDocs(query(collection(db, "received"))),
+                    getDocs(query(collection(db, "items"))),
+                ]);
+
+                const receivedDocs = receivedSnapshot.docs.map((receivedDoc) => ({
+                    ...receivedDoc.data(),
+                    id: receivedDoc.id,
+                }));
+
+                const itemsById = new Map(
+                    itemsSnapshot.docs.map((itemDoc) => [
+                        itemDoc.id,
+                        { id: itemDoc.id, ...itemDoc.data() },
+                    ])
+                );
+
+                setTotalReceived(receivedDocs.length);
+                setAggregatedItems(aggregateByItemId(receivedDocs, itemsById));
+            } catch (e) {
+                console.error("Error fetching received documents: ", e);
+            }
+        };
+
+        fetchReceived();
+    }, []);
+
+    const renderItem = ({ item }: { item: AggregatedReceived }) => (
         <FancyListItem
             item={item}
-            onPress={() => console.log(`Pressed item ${item.title}`)}
+            onPress={() =>
+                console.log(
+                    `Pressed item ${item.itemId}`,
+                    item.item?.productName ?? item.itemId,
+                    `receivedQuantity: ${item.receivedQuantity}`
+                )
+            }
         />
     );
 
     return (
         <View>
-            <Text style={{ marginLeft: 10, marginTop: 10 }}>Received Today: 10</Text>
+            <Text style={{ marginLeft: 10, marginTop: 10 }}>
+                Received Today: {totalReceived} ({aggregatedItems.length} unique)
+            </Text>
             <FlatList
-                data={DATA}
+                data={aggregatedItems}
                 renderItem={renderItem}
-                keyExtractor={(item) => item.id}
+                keyExtractor={(item) => item.itemId}
                 contentContainerStyle={styles.listContainer}
             />
         </View>
     );
 }
 
-// Styles
 const styles = StyleSheet.create({
     listContainer: {
         paddingVertical: 10,
@@ -79,12 +164,6 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
         elevation: 3,
     },
-    itemImage: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        marginRight: 15,
-    },
     textContainer: {
         flex: 1,
     },
@@ -97,10 +176,5 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: "#666",
         marginTop: 2,
-    },
-    accessory: {
-        fontSize: 20,
-        color: "#ccc",
-        marginLeft: 10,
     },
 });

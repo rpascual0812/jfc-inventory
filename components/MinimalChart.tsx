@@ -1,8 +1,10 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { useCallback, useMemo, useState } from "react";
+import { collection, getDocs, query } from "firebase/firestore";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { BarChart } from "react-native-gifted-charts";
-import { generateMonthlyData } from "../constants/DummyData";
+
+import { db } from "../FirebaseConfig";
 import { Color } from "../constants/TWPallete";
 import { Icon } from "./ui/Icon";
 
@@ -10,48 +12,130 @@ interface BarData {
     value: number;
     label?: string;
     frontColor?: string;
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
-// Color themes using TWPalette
+interface ProductChartEntry {
+    id: string;
+    productName: string;
+    quantity: number;
+    received: number;
+}
+
 const colorThemes = {
-    // blue: { name: "blue", primary: 500, accent: 600 },
-    // purple: { name: "purple", primary: 500, accent: 600 },
-    // emerald: { name: "emerald", primary: 500, accent: 600 },
-    // orange: { name: "orange", primary: 500, accent: 600 },
-    // pink: { name: "pink", primary: 500, accent: 600 },
-    // cyan: { name: "cyan", primary: 500, accent: 600 },
     yellow: { name: "yellow", primary: 500, accent: 600 },
 } as const;
 
 type ColorTheme = keyof typeof colorThemes;
 
+const getMonthName = (month: number) => {
+    const months = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+    ];
+    return months[month];
+};
+
+const CHART_BAR_WIDTH = 24;
+const CHART_BAR_SPACING = 16;
+const CHART_INITIAL_SPACING = 16;
+const CHART_GROUP_WIDTH = CHART_BAR_WIDTH * 2 + CHART_BAR_SPACING;
+
+const getReceivedDate = (received: Record<string, unknown>): Date | null => {
+    const value = received.createdAt ?? received.receivedAt ?? received.date;
+
+    if (!value || typeof value !== "object") {
+        return null;
+    }
+
+    if ("toDate" in value && typeof value.toDate === "function") {
+        return value.toDate();
+    }
+
+    return null;
+};
+
+const isInMonth = (date: Date | null, year: number, month: number) =>
+    !!date && date.getFullYear() === year && date.getMonth() === month;
+
 export default function MinimalChart() {
     const [selectedBarIndex, setSelectedBarIndex] = useState<number | null>(null);
     const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-    const [colorTheme, setColorTheme] = useState<ColorTheme>("yellow");
+    const [colorTheme] = useState<ColorTheme>("yellow");
+    const [items, setItems] = useState<any[]>([]);
+    const [receivedDocs, setReceivedDocs] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
 
     const theme = colorThemes[colorTheme];
     const themeColor = Color[theme.name as keyof typeof Color];
 
-    const getMonthName = (month: number) => {
-        const months = [
-            "Jan",
-            "Feb",
-            "Mar",
-            "Apr",
-            "May",
-            "Jun",
-            "Jul",
-            "Aug",
-            "Sep",
-            "Oct",
-            "Nov",
-            "Dec",
-        ];
-        return months[month];
-    };
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const [itemsSnapshot, receivedSnapshot] = await Promise.all([
+                    getDocs(query(collection(db, "items"))),
+                    getDocs(query(collection(db, "received"))),
+                ]);
+
+                setItems(
+                    itemsSnapshot.docs.map((doc) => ({
+                        id: doc.id,
+                        ...doc.data(),
+                    }))
+                );
+                setReceivedDocs(
+                    receivedSnapshot.docs.map((doc) => ({
+                        id: doc.id,
+                        ...doc.data(),
+                    }))
+                );
+            } catch (error) {
+                console.error("Error fetching chart data: ", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchData();
+    }, []);
+
+    const chartData = useMemo<ProductChartEntry[]>(() => {
+        const itemsById = new Map(items.map((item) => [item.id, item]));
+        const receivedByItemId = new Map<string, number>();
+
+        for (const received of receivedDocs) {
+            if (!received.itemId) continue;
+            if (!isInMonth(getReceivedDate(received), currentYear, currentMonth)) {
+                continue;
+            }
+
+            const item = itemsById.get(received.itemId);
+            const qty = Number(item?.receivedQuantity ?? item?.receivedQty) || 0;
+
+            receivedByItemId.set(
+                received.itemId,
+                (receivedByItemId.get(received.itemId) ?? 0) + qty
+            );
+        }
+
+        return items.map((item) => ({
+            id: item.id,
+            productName: item.productName ?? "Unknown",
+            quantity: Number(item.receivedQty ?? item.endingInventory ?? 0) || 0,
+            received: receivedByItemId.get(item.id) ?? 0,
+        }));
+    }, [items, receivedDocs, currentYear, currentMonth]);
 
     const navigateMonth = (direction: number) => {
         let newMonth = currentMonth + direction;
@@ -70,35 +154,71 @@ export default function MinimalChart() {
         setSelectedBarIndex(null);
     };
 
-    const monthlyData = useMemo(
-        () => generateMonthlyData(currentYear, currentMonth + 1),
-        [currentYear, currentMonth],
-    );
-
     const getChartData = useCallback(() => {
-        return monthlyData.map((item, index) => ({
-            ...item,
-            frontColor:
-                selectedBarIndex === index
-                    ? themeColor[theme.accent]
-                    : themeColor[theme.primary],
-            gradientColor:
-                selectedBarIndex === index ? themeColor[400] : themeColor[300],
-            topLabelComponent: () =>
-                selectedBarIndex === index ? (
-                    <Text
-                        style={{
-                            color: themeColor[700],
-                            fontSize: 10,
-                            fontWeight: "600",
-                            marginBottom: 4,
-                        }}
-                    >
-                        {item.value}
-                    </Text>
-                ) : null,
-        }));
-    }, [monthlyData, selectedBarIndex, themeColor, theme]);
+        return chartData.flatMap((item, index) => {
+            const quantityBarIndex = index * 2;
+            const receivedBarIndex = quantityBarIndex + 1;
+
+            return [
+                {
+                    value: item.quantity,
+                    spacing: 0,
+                    frontColor:
+                        selectedBarIndex === quantityBarIndex
+                            ? themeColor[theme.accent]
+                            : themeColor[theme.primary],
+                    topLabelComponent: () =>
+                        selectedBarIndex === quantityBarIndex ? (
+                            <Text
+                                style={{
+                                    color: themeColor[700],
+                                    fontSize: 10,
+                                    fontWeight: "600",
+                                    marginBottom: 4,
+                                }}
+                            >
+                                {item.quantity}
+                            </Text>
+                        ) : null,
+                },
+                {
+                    value: item.received,
+                    frontColor:
+                        selectedBarIndex === receivedBarIndex
+                            ? themeColor[500]
+                            : themeColor[300],
+                    topLabelComponent: () =>
+                        selectedBarIndex === receivedBarIndex ? (
+                            <Text
+                                style={{
+                                    color: themeColor[700],
+                                    fontSize: 10,
+                                    fontWeight: "600",
+                                    marginBottom: 4,
+                                }}
+                            >
+                                {item.received}
+                            </Text>
+                        ) : null,
+                },
+            ];
+        });
+    }, [chartData, selectedBarIndex, themeColor, theme]);
+
+    const totalQuantity = chartData.reduce((sum, item) => sum + item.quantity, 0);
+    const totalReceived = chartData.reduce((sum, item) => sum + item.received, 0);
+
+    const chartWidth = useMemo(() => {
+        if (chartData.length === 0) {
+            return undefined;
+        }
+
+        return (
+            CHART_INITIAL_SPACING +
+            chartData.length * CHART_GROUP_WIDTH +
+            CHART_INITIAL_SPACING
+        );
+    }, [chartData.length]);
 
     const bgColors = [
         Color[colorThemes[colorTheme].name][100],
@@ -116,8 +236,8 @@ export default function MinimalChart() {
             <ScrollView
                 contentInsetAdjustmentBehavior="automatic"
                 showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.scrollContent}
             >
-                {/* Stats Cards */}
                 <View
                     style={{
                         flexDirection: "row",
@@ -128,7 +248,7 @@ export default function MinimalChart() {
                     }}
                 >
                     <View style={{ flex: 1, ...styles.card }}>
-                        <Text style={styles.label}>Average</Text>
+                        <Text style={styles.label}>Products</Text>
                         <Text
                             style={{
                                 fontSize: 24,
@@ -137,15 +257,12 @@ export default function MinimalChart() {
                                 marginTop: 4,
                             }}
                         >
-                            {Math.round(
-                                monthlyData.reduce((sum, item) => sum + item.value, 0) /
-                                monthlyData.length,
-                            )}
+                            {chartData.length}
                         </Text>
                     </View>
 
                     <View style={{ flex: 1, ...styles.card }}>
-                        <Text style={styles.label}>Total</Text>
+                        <Text style={styles.label}>Total Qty</Text>
                         <Text
                             style={{
                                 fontSize: 24,
@@ -154,12 +271,12 @@ export default function MinimalChart() {
                                 marginTop: 4,
                             }}
                         >
-                            {monthlyData.reduce((sum, item) => sum + item.value, 0)}
+                            {totalQuantity}
                         </Text>
                     </View>
 
                     <View style={{ flex: 1, ...styles.card }}>
-                        <Text style={styles.label}>Peak</Text>
+                        <Text style={styles.label}>Received</Text>
                         <Text
                             style={{
                                 fontSize: 24,
@@ -168,12 +285,11 @@ export default function MinimalChart() {
                                 marginTop: 4,
                             }}
                         >
-                            {Math.max(...monthlyData.map((item) => item.value))}
+                            {totalReceived}
                         </Text>
                     </View>
                 </View>
 
-                {/* Month Navigation */}
                 <View
                     style={{
                         flexDirection: "row",
@@ -224,107 +340,176 @@ export default function MinimalChart() {
                     </Pressable>
                 </View>
 
-                {/* Chart Container */}
+                <View
+                    style={{
+                        flexDirection: "row",
+                        gap: 16,
+                        paddingHorizontal: 16,
+                        marginBottom: 12,
+                    }}
+                >
+                    <View style={styles.legendItem}>
+                        <View
+                            style={[
+                                styles.legendSwatch,
+                                { backgroundColor: themeColor[theme.primary] },
+                            ]}
+                        />
+                        <Text style={styles.legendText}>Quantity</Text>
+                    </View>
+                    <View style={styles.legendItem}>
+                        <View
+                            style={[
+                                styles.legendSwatch,
+                                { backgroundColor: themeColor[300] },
+                            ]}
+                        />
+                        <Text style={styles.legendText}>Received</Text>
+                    </View>
+                </View>
+
                 <View
                     style={{
                         marginBottom: 32,
                         overflow: "hidden",
                     }}
                 >
-                    <BarChart
-                        noOfSections={4}
-                        barBorderRadius={4}
-                        data={getChartData()}
-                        yAxisThickness={0}
-                        xAxisThickness={0}
-                        // hideYAxisText
-                        xAxisLabelTextStyle={{
-                            color: Color.gray[400],
-                            fontSize: 12,
-                            fontWeight: "500",
-                        }}
-                        yAxisTextStyle={{
-                            color: Color.gray[400],
-                            fontSize: 12,
-                            fontWeight: "500",
-                        }}
-                        showXAxisIndices={false}
-                        // renderTooltip={() => (
-                        //   <View style={{ backgroundColor: "white" }}>
-                        //     <Text>Tooltip</Text>
-                        //   </View>
-                        // )}
-                        isAnimated
-                        animationDuration={300}
-                        onPress={(_item: BarData, index: number) => {
-                            setSelectedBarIndex(selectedBarIndex === index ? null : index);
-                        }}
-                        showGradient
-                        dashGap={10}
-                    />
+                    {loading ? (
+                        <Text style={styles.emptyText}>Loading chart...</Text>
+                    ) : chartData.length === 0 ? (
+                        <Text style={styles.emptyText}>No products found.</Text>
+                    ) : (
+                        <ScrollView
+                            horizontal
+                            nestedScrollEnabled
+                            showsHorizontalScrollIndicator={false}
+                        >
+                            <View>
+                                <BarChart
+                                    noOfSections={4}
+                                    barBorderRadius={4}
+                                    data={getChartData()}
+                                    width={chartWidth}
+                                    disableScroll
+                                    initialSpacing={CHART_INITIAL_SPACING}
+                                    endSpacing={CHART_INITIAL_SPACING}
+                                    yAxisThickness={0}
+                                    xAxisThickness={0}
+                                    yAxisTextStyle={{
+                                        color: Color.gray[400],
+                                        fontSize: 12,
+                                        fontWeight: "500",
+                                    }}
+                                    showXAxisIndices={false}
+                                    isAnimated
+                                    animationDuration={300}
+                                    onPress={(_item: BarData, index: number) => {
+                                        setSelectedBarIndex(
+                                            selectedBarIndex === index ? null : index
+                                        );
+                                    }}
+                                    showGradient
+                                    dashGap={10}
+                                    barWidth={CHART_BAR_WIDTH}
+                                    spacing={CHART_BAR_SPACING}
+                                />
+                                <View style={styles.chartLabelsRow}>
+                                    {chartData.map((item) => (
+                                        <View
+                                            key={item.id}
+                                            style={styles.chartLabelContainer}
+                                        >
+                                            <Text style={styles.chartLabel}>
+                                                {item.productName}
+                                            </Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            </View>
+                        </ScrollView>
+                    )}
                 </View>
-                {/* Color Theme Selector */}
-                {/* <View style={{ paddingHorizontal: 16 }}>
-                    <Text
-                        style={{
-                            ...styles.label,
-                            marginBottom: 12,
-                        }}
-                    >
-                        Choose Theme
-                    </Text>
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={{ gap: 12 }}
-                    >
-                        {(Object.keys(colorThemes) as ColorTheme[]).map((theme) => (
-                            <Pressable
-                                key={theme}
-                                onPress={() => {
-                                    setColorTheme(theme);
-                                    setSelectedBarIndex(null);
-                                }}
-                                style={{
-                                    width: 32,
-                                    height: 32,
-                                    borderRadius: 16,
-                                    backgroundColor:
-                                        Color[colorThemes[theme].name as keyof typeof Color][500],
-                                    borderWidth: colorTheme === theme ? 3 : 0,
-                                    borderColor: Color.gray[900],
-                                    boxShadow:
-                                        colorTheme === theme
-                                            ? "0px 2px 8px rgba(0,0,0,0.2)"
-                                            : "none",
-                                }}
-                            />
+
+                {!loading && chartData.length > 0 ? (
+                    <View style={{ paddingHorizontal: 16, marginBottom: 32, gap: 8 }}>
+                        {chartData.map((item) => (
+                            <View key={item.id} style={styles.productRow}>
+                                <Text style={styles.productName}>{item.productName}</Text>
+                                <Text style={styles.productMeta}>
+                                    Qty: {item.quantity} · Received: {item.received}
+                                </Text>
+                            </View>
                         ))}
-                    </ScrollView>
-                </View> */}
+                    </View>
+                ) : null}
             </ScrollView>
         </LinearGradient>
     );
 }
 
 const styles = StyleSheet.create({
+    scrollContent: {
+        paddingBottom: 140,
+    },
     card: {
         backgroundColor: "#ffffff",
         borderRadius: 16,
         padding: 16,
         boxShadow: "0px 2px 8px rgba(0,0,0,0.05)",
     },
-    title: {
-        fontSize: 28,
-        fontWeight: "700" as const,
-        color: Color.gray[900],
-    },
-    subtitle: {
-        fontSize: 16,
-        color: Color.gray[600],
-    },
     label: {
         fontSize: 14,
         color: Color.gray[600],
+    },
+    legendItem: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+    },
+    legendSwatch: {
+        width: 12,
+        height: 12,
+        borderRadius: 3,
+    },
+    legendText: {
+        fontSize: 13,
+        color: Color.gray[600],
+    },
+    emptyText: {
+        textAlign: "center",
+        color: Color.gray[500],
+        paddingVertical: 32,
+    },
+    productRow: {
+        backgroundColor: "#ffffff",
+        borderRadius: 12,
+        padding: 12,
+    },
+    productName: {
+        fontSize: 15,
+        fontWeight: "600",
+        color: Color.gray[900],
+    },
+    productMeta: {
+        fontSize: 13,
+        color: Color.gray[600],
+        marginTop: 4,
+    },
+    chartLabelsRow: {
+        flexDirection: "row",
+        paddingLeft: CHART_INITIAL_SPACING,
+        paddingRight: CHART_INITIAL_SPACING,
+        marginTop: 8,
+    },
+    chartLabelContainer: {
+        width: CHART_GROUP_WIDTH,
+        alignItems: "center",
+        justifyContent: "flex-start",
+    },
+    chartLabel: {
+        color: Color.gray[400],
+        fontSize: 11,
+        fontWeight: "500",
+        textAlign: "center",
     },
 });

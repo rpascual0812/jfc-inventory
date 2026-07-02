@@ -1,4 +1,4 @@
-import { Color } from "@/constants/TWPalette";
+import { Color } from "@/constants/TWPallete";
 
 // Shared UI component types
 export type UISize = "xs" | "sm" | "md" | "lg" | "xl" | "2xl";
