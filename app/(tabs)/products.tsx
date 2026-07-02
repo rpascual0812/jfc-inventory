@@ -3,7 +3,6 @@ import { useState } from 'react';
 import {
     Alert,
     FlatList,
-    Image,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -12,31 +11,22 @@ import {
 
 import CustomIconButton from '@/components/custom-icon-button';
 import ProductModal from '@/components/product-modal';
-import { collection, getDocs, query } from 'firebase/firestore';
+import ProductQrModal from '@/components/product-qr-modal';
+import FireStoreService from '@/services/FireStore';
 import Toast from 'react-native-toast-message';
-import { db } from '../../FirebaseConfig';
-
-// Custom Fancy List Item Component
-const FancyListItem = ({ item, onPress }: { item: any; onPress: any }) => (
-    <TouchableOpacity style={styles.itemContainer} onPress={onPress}>
-        <Image source={{ uri: item.imageUrl }} style={styles.itemImage} />
-        <View style={styles.textContainer}>
-            <Text style={styles.itemTitle}>{item.title}</Text>
-            <Text style={styles.itemDescription}>{item.description}</Text>
-        </View>
-    </TouchableOpacity>
-);
 
 export default function ProductScreen() {
-    const [modalVisible, setModalVisible] = useState(false);
+    const [productModalVisible, setProductModalVisible] = useState(false);
     const [items, setItems] = useState<any>([]);
     const [item, setItem] = useState<any>({});
-    const itemsCollection = collection(db, 'items');
+
+    const [productQrModalVisible, setProductQrModalVisible] = useState(false);
+    const [qrItem, setQrItem] = useState<any>({});
+
     const fetchItems = async () => {
         try {
-            const q = query(itemsCollection);
-            const data = await getDocs(q);
-            setItems(data.docs.map((doc) => ({ ...doc.data(), id: doc.id })));
+            const data = await FireStoreService().getItems();
+            setItems(data);
         } catch (e) {
             console.error('Error fetching documents: ', e);
         }
@@ -45,40 +35,64 @@ export default function ProductScreen() {
     fetchItems();
 
     const handleEdit = (item: any) => {
-        item.consumeUntil = moment(item.consumeUntil.toDate()).format('DD MMMM, YYYY');
+        item.productName = item.productName.toString();
+        item.consumeUntil = item.consumeUntil ? moment(item.consumeUntil.toDate()).format('DD MMMM, YYYY') : '';
+        item.batchCode = item.batchCode.toString();
         item.beginningQty = item.beginningQty.toString();
         item.receivedQty = item.receivedQty.toString();
+        item.transferIn = item.transferIn.toString();
+        item.transferOut = item.transferOut.toString();
         item.endingInventory = item.endingInventory.toString();
         item.dailyUsage = item.dailyUsage.toString();
         item.ordering = item.ordering.toString();
+        item.unitOfMeasurement = item.unitOfMeasurement.toString();
+
         setItem(item);
-        setModalVisible(true);
+        setProductModalVisible(true);
+
         // Implementation for edit functionality
     };
 
     const handleDelete = (id: string) => {
-        console.log('Delete item with id: ', id);
-        deleteAlert();
+        deleteAlert(id);
         // Implementation for delete functionality
     };
 
-    const deleteAlert = () =>
+    const deleteAlert = (id: string) =>
         Alert.alert('Please confirm', 'Are you sure you want to delete this product?', [
             {
                 text: 'Cancel',
                 onPress: () => console.log('Cancel Pressed'),
                 style: 'cancel',
             },
-            { text: 'Delete', onPress: () => console.log('OK Pressed') },
+            {
+                text: 'Delete', onPress: () => {
+                    FireStoreService().deleteItem(id);
+                    Toast.show({
+                        type: 'success', // or 'error', 'info'
+                        text1: 'Success',
+                        text2: 'Product deleted successfully!',
+                        visibilityTime: 4000, // duration in milliseconds
+                    });
+                }
+            },
         ]);
 
-    const toggleModal = (status: boolean) => {
-        setModalVisible(status);
+    const handleShowQr = (item: any) => {
+        setProductQrModalVisible(true);
+        setQrItem(item);
+    };
+
+    const toggleProductModal = (status: boolean) => {
+        setProductModalVisible(status);
+    };
+
+    const toggleProductQrModal = (status: boolean) => {
+        setProductQrModalVisible(status);
     };
 
     const productUpdated = () => {
-        console.log('submitted');
-        setModalVisible(false);
+        setProductModalVisible(false);
         Toast.show({
             type: 'success', // or 'error', 'info'
             text1: 'Success',
@@ -95,12 +109,12 @@ export default function ProductScreen() {
             <FlatList
                 data={items}
                 renderItem={({ item }) => (
-                    <View style={styles.itemContainer}>
+                    <TouchableOpacity style={styles.itemContainer} onPress={() => handleShowQr(item)}>
                         <View style={{ flexDirection: 'row', justifyContent: 'flex-start' }}>
                             <View>
                                 <Text style={styles.itemTitle}>Product: {item.productName} ({item.unitOfMeasurement})</Text>
                                 <Text style={styles.itemDescription}>Batch Code: {item.batchCode}</Text>
-                                <Text style={styles.itemDescription}>CU: {moment(item.consumeUntil.toDate()).format('LLLL')}</Text>
+                                <Text style={styles.itemDescription}>CU: {item.consumeUntil ? moment(item?.consumeUntil.toDate()).format('LLLL') : ''}</Text>
                                 <Text style={styles.itemDescription}>Qty: {item.receivedQty}</Text>
                             </View>
                             <View style={{ flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-end', flex: 1 }}>
@@ -116,16 +130,23 @@ export default function ProductScreen() {
                                 />
                             </View>
                         </View>
-                    </View>
+                    </TouchableOpacity>
                 )}
                 contentContainerStyle={styles.listContainer}
             />
             <ProductModal
                 data={item}
-                isModalVisible={modalVisible}
-                closeModal={() => toggleModal(false)}
+                isModalVisible={productModalVisible}
+                closeModal={() => toggleProductModal(false)}
                 submitted={() => productUpdated()}
             ></ProductModal>
+
+            <ProductQrModal
+                data={item}
+                isModalVisible={productQrModalVisible}
+                closeModal={() => toggleProductQrModal(false)}
+                item={qrItem}
+            ></ProductQrModal>
         </View>
     );
 }

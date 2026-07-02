@@ -12,12 +12,10 @@ const CustomHeader = () => {
     };
 
     const handleAddProduct = () => {
-        console.log('handleAddProduct');
         setModalVisible(true);
     }
 
     const newProductSubmitted = () => {
-        console.log('submitted');
         setModalVisible(false);
         Toast.show({
             type: 'success', // or 'error', 'info'
