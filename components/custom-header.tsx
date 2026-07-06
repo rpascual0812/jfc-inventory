@@ -1,6 +1,7 @@
 import Entypo from "@expo/vector-icons/Entypo";
 import { useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast, { BaseToast, BaseToastProps } from 'react-native-toast-message';
 
 import ProductModal from './product-modal';
@@ -48,18 +49,18 @@ const CustomHeader = () => {
     };
 
     return (
-        // <SafeAreaView style={{ backgroundColor: "#cf240a" }}>
-        <View
-            style={{
-                backgroundColor: "#cf240a",
-                flexDirection: "row",
-                justifyContent: "space-between",
-                alignItems: "center",
-                height: 90,
-                paddingHorizontal: 10,
-                paddingTop: 30,
-            }}
-        >
+        <SafeAreaView style={{ backgroundColor: "#cf240a" }}>
+            <View
+                style={{
+                    backgroundColor: "#cf240a",
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    height: 90,
+                    paddingHorizontal: 10,
+                    paddingTop: 30,
+                }}
+            >
             <TouchableOpacity onPress={() => alert("Left button pressed")}>
                 {/* <Text style={{ color: "white" }}>Left</Text> */}
             </TouchableOpacity>
@@ -79,7 +80,7 @@ const CustomHeader = () => {
 
             <Toast config={toastConfig} />
         </View>
-        // </SafeAreaView>
+        </SafeAreaView>
     );
 };
 

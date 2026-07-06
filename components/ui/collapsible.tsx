@@ -12,20 +12,20 @@ export function Collapsible({ children, title }: PropsWithChildren & { title: st
   const theme = useColorScheme() ?? 'light';
 
   return (
-    <ThemedView>
+    <ThemedView style={styles.container} lightColor={Colors.light.surface} darkColor={Colors.dark.surface}>
       <TouchableOpacity
-        style={styles.heading}
+        style={[styles.heading, { borderColor: theme === 'light' ? Colors.light.border : Colors.dark.border }]}
         onPress={() => setIsOpen((value) => !value)}
-        activeOpacity={0.8}>
+        activeOpacity={0.85}>
         <IconSymbol
           name="chevron.right"
           size={18}
           weight="medium"
-          color={theme === 'light' ? Colors.light.icon : Colors.dark.icon}
+          color={theme === 'light' ? Colors.light.accent : Colors.dark.tint}
           style={{ transform: [{ rotate: isOpen ? '90deg' : '0deg' }] }}
         />
 
-        <ThemedText type="defaultSemiBold">{title}</ThemedText>
+        <ThemedText type="defaultSemiBold" style={styles.title}>{title}</ThemedText>
       </TouchableOpacity>
       {isOpen && <ThemedView style={styles.content}>{children}</ThemedView>}
     </ThemedView>
@@ -33,13 +33,30 @@ export function Collapsible({ children, title }: PropsWithChildren & { title: st
 }
 
 const styles = StyleSheet.create({
+  container: {
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 14,
+    marginVertical: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.04,
+    shadowRadius: 24,
+    elevation: 2,
+    backgroundColor: 'white',
+  },
   heading: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 10,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+  },
+  title: {
+    fontSize: 16,
   },
   content: {
-    marginTop: 6,
-    marginLeft: 24,
+    marginTop: 14,
+    paddingLeft: 24,
   },
 });

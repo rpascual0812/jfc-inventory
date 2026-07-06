@@ -1,35 +1,38 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { Pressable, StyleSheet, TextStyle, ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, ViewStyle } from 'react-native';
 
 interface CustomIconButtonProps {
     icon: React.ComponentProps<typeof Ionicons>['name'];
     onPress: () => void;
     style?: ViewStyle;
-    textStyle?: TextStyle;
 }
 
-const CustomIconButton = ({ icon, onPress, style, textStyle }: CustomIconButtonProps) => (
-    <Pressable style={[styles.button, style]} onPress={onPress}>
-        <Ionicons
-            name={icon}
-            color="white"
-            size={24}
-        />
+const CustomIconButton = ({ icon, onPress, style }: CustomIconButtonProps) => (
+    <Pressable
+        style={({ pressed }) => [styles.button, pressed && styles.pressed, style]}
+        onPress={onPress}
+        android_ripple={{ color: 'rgba(255,255,255,0.18)' }}
+    >
+        <Ionicons name={icon} color="white" size={20} />
     </Pressable>
 );
 
 const styles = StyleSheet.create({
     button: {
-        padding: 5,
-        marginHorizontal: 5,
-        borderRadius: 5,
+        padding: 12,
+        borderRadius: 14,
+        backgroundColor: '#0F4C81',
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#0F4C81',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.12,
+        shadowRadius: 14,
+        elevation: 3,
     },
-    buttonText: {
-        color: 'white',
-        textAlign: 'center',
-        fontWeight: 'bold',
-        fontSize: 10
+    pressed: {
+        opacity: 0.86,
     },
 });
 

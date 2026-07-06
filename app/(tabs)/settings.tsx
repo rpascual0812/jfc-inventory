@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
+import { Collapsible } from '@/components/ui/collapsible';
+import FireStoreService from '@/services/FireStore';
+
 const slugify = (value: string) =>
     value
         .toLowerCase()
         .trim()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)/g, '');
-
-import { Collapsible } from '@/components/ui/collapsible';
-import FireStoreService from '@/services/FireStore';
 
 type DropdownCategory = 'typeList' | 'productList' | 'unitOfMeasurementList' | 'storeCode';
 
@@ -76,7 +76,7 @@ export default function SettingScreen() {
         loadLists();
     }, []);
 
-    const updateDraft = (category: DropdownCategory, field: 'value', value: string) => {
+    const updateDraft = (category: DropdownCategory, value: string) => {
         setDrafts((current) => ({
             ...current,
             [category]: {
@@ -156,7 +156,7 @@ export default function SettingScreen() {
             <Text style={styles.subtitle}>Manage the values used in the product entry form.</Text>
 
             {loading ? (
-                <ActivityIndicator size="large" style={{ marginTop: 24 }} />
+                <ActivityIndicator size="large" style={styles.loader} />
             ) : (
                 categories.map((category) => (
                     <Collapsible key={category.key} title={category.title}>
@@ -164,26 +164,20 @@ export default function SettingScreen() {
                             <Text style={styles.description}>{category.description}</Text>
 
                             {dropdownData[category.key].length === 0 ? (
-                                <Text style={styles.emptyState}>No items saved yet.</Text>
+                                <Text style={styles.emptyState}>No saved values yet.</Text>
                             ) : (
                                 dropdownData[category.key].map((item) => (
                                     <View key={item.id} style={styles.itemRow}>
-                                                <View style={styles.itemTextWrap}>
-                                                    <Text style={styles.itemValueHighlighted}>{item.value}</Text>
-                                                    <Text style={styles.itemSlug}>{item.label}</Text>
-                                                </View>
+                                        <View style={styles.itemTextWrap}>
+                                            <Text style={styles.itemValueHighlighted}>{item.value}</Text>
+                                            <Text style={styles.itemSlug}>{item.label}</Text>
+                                        </View>
                                         <View style={styles.itemActions}>
-                                            <TouchableOpacity
-                                                style={styles.actionButton}
-                                                onPress={() => handleEdit(category.key, item)}
-                                            >
+                                            <TouchableOpacity style={styles.actionButton} onPress={() => handleEdit(category.key, item)}>
                                                 <Text style={styles.actionText}>Edit</Text>
                                             </TouchableOpacity>
-                                            <TouchableOpacity
-                                                style={[styles.actionButton, styles.deleteButton]}
-                                                onPress={() => handleDelete(category.key, item.id)}
-                                            >
-                                                <Text style={styles.actionText}>Delete</Text>
+                                            <TouchableOpacity style={[styles.actionButton, styles.deleteButton]} onPress={() => handleDelete(category.key, item.id)}>
+                                                <Text style={[styles.actionText, styles.deleteText]}>Delete</Text>
                                             </TouchableOpacity>
                                         </View>
                                     </View>
@@ -191,24 +185,21 @@ export default function SettingScreen() {
                             )}
 
                             <View style={styles.formBox}>
-                                <Text style={styles.helperText}>
-                                    Enter the value. A unique slug will be generated automatically.
-                                </Text>
+                                <Text style={styles.helperText}>Enter the display name for the dropdown item. The slug is generated automatically.</Text>
                                 <TextInput
                                     placeholder="Value"
+                                    placeholderTextColor="#94A3B8"
                                     value={drafts[category.key].value}
-                                    onChangeText={(value) => updateDraft(category.key, 'value', value)}
+                                    onChangeText={(value) => updateDraft(category.key, value)}
                                     style={styles.input}
                                 />
 
                                 <View style={styles.formActions}>
                                     <TouchableOpacity style={styles.primaryButton} onPress={() => handleSave(category.key)}>
-                                        <Text style={styles.primaryButtonText}>
-                                            {editingIds[category.key] ? 'Update' : 'Add'}
-                                        </Text>
+                                        <Text style={styles.primaryButtonText}>{editingIds[category.key] ? 'Update' : 'Add'}</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity style={styles.secondaryButton} onPress={() => resetDraft(category.key)}>
-                                        <Text style={styles.secondaryButtonText}>Cancel</Text>
+                                        <Text style={styles.secondaryButtonText}>Clear</Text>
                                     </TouchableOpacity>
                                 </View>
                             </View>
@@ -222,121 +213,150 @@ export default function SettingScreen() {
 
 const styles = StyleSheet.create({
     container: {
-        padding: 16,
+        flexGrow: 1,
+        padding: 24,
         paddingBottom: 40,
+        backgroundColor: '#F4F7FB',
     },
     title: {
-        fontSize: 24,
-        fontWeight: '700',
-        marginBottom: 4,
+        fontSize: 30,
+        fontWeight: '800',
+        color: '#0F172A',
+        marginBottom: 8,
     },
     subtitle: {
-        fontSize: 14,
-        color: '#666',
-        marginBottom: 16,
+        fontSize: 15,
+        color: '#475569',
+        marginBottom: 20,
+        lineHeight: 22,
+        maxWidth: '92%',
+    },
+    loader: {
+        marginTop: 24,
     },
     sectionContent: {
-        gap: 10,
+        gap: 14,
     },
     description: {
-        fontSize: 12,
-        color: '#666',
-        marginBottom: 4,
+        fontSize: 13,
+        color: '#64748B',
+        marginBottom: 10,
     },
     helperText: {
         fontSize: 12,
-        color: '#666',
-        marginBottom: 2,
+        color: '#64748B',
+        marginBottom: 10,
     },
     emptyState: {
         fontSize: 13,
-        color: '#888',
+        color: '#94A3B8',
         fontStyle: 'italic',
+        paddingVertical: 10,
     },
     itemRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingVertical: 8,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: '#ddd',
-        gap: 8,
+        padding: 16,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        marginBottom: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.06,
+        shadowRadius: 20,
+        elevation: 2,
+        gap: 14,
     },
     itemTextWrap: {
         flex: 1,
     },
-    itemLabel: {
-        fontWeight: '600',
-        fontSize: 14,
-    },
-    itemValue: {
-        fontSize: 12,
-        color: '#666',
-    },
     itemValueHighlighted: {
-        fontSize: 15,
+        fontSize: 16,
         fontWeight: '700',
-        color: '#111',
+        color: '#0F172A',
     },
     itemSlug: {
         fontSize: 12,
-        color: '#888',
-        marginTop: 2,
+        color: '#64748B',
+        marginTop: 4,
     },
     itemActions: {
         flexDirection: 'row',
         gap: 8,
     },
     actionButton: {
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 6,
-        backgroundColor: '#e8f0fe',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 14,
+        backgroundColor: '#F8FAFF',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
     },
     deleteButton: {
-        backgroundColor: '#fde8e8',
+        backgroundColor: '#FEF2F2',
+        borderColor: '#FECACA',
     },
     actionText: {
         fontSize: 12,
-        color: '#1a73e8',
+        color: '#0F4C81',
+        fontWeight: '700',
+    },
+    deleteText: {
+        color: '#B91C1C',
     },
     formBox: {
-        marginTop: 6,
-        padding: 10,
-        borderRadius: 8,
-        backgroundColor: '#f6f6f6',
-        gap: 8,
+        marginTop: 16,
+        padding: 18,
+        borderRadius: 22,
+        backgroundColor: '#FFFFFF',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        gap: 14,
     },
     input: {
         borderWidth: 1,
-        borderColor: '#ccc',
-        borderRadius: 8,
-        paddingHorizontal: 10,
-        paddingVertical: 8,
-        backgroundColor: '#fff',
+        borderColor: '#E2E8F0',
+        borderRadius: 16,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        backgroundColor: '#F8FAFF',
+        color: '#0F172A',
     },
     formActions: {
         flexDirection: 'row',
-        gap: 8,
+        gap: 12,
     },
     primaryButton: {
-        backgroundColor: '#4CAF50',
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 8,
+        flex: 1,
+        backgroundColor: '#0F4C81',
+        paddingHorizontal: 14,
+        paddingVertical: 14,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     primaryButtonText: {
-        color: '#fff',
-        fontWeight: '600',
+        color: '#FFFFFF',
+        fontWeight: '700',
+        fontSize: 14,
     },
     secondaryButton: {
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 8,
+        flex: 1,
+        paddingHorizontal: 14,
+        paddingVertical: 14,
+        borderRadius: 16,
         borderWidth: 1,
-        borderColor: '#ccc',
+        borderColor: '#E2E8F0',
+        backgroundColor: '#FFFFFF',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     secondaryButtonText: {
-        color: '#666',
+        color: '#475569',
+        fontWeight: '700',
+        fontSize: 14,
     },
 });
