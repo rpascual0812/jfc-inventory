@@ -4,8 +4,9 @@ import { db } from '../FirebaseConfig';
 
 const itemCollection = process.env.EXPO_PUBLIC_ITEM_COLLECTION || 'items';
 const receivedCollection = process.env.EXPO_PUBLIC_RECEIVED_COLLECTION || 'received';
+const dropdownCollection = process.env.EXPO_PUBLIC_DROPDOWN_COLLECTION || 'dropdownOptions';
 
-export default function FireStoreService() {
+const createFireStoreService = () => {
     const getItems = async () => {
         try {
             const itemsCollection = collection(db, itemCollection);
@@ -48,17 +49,15 @@ export default function FireStoreService() {
         const formattedDate = item?.consumeUntil ? moment(item?.consumeUntil, 'DD MMMM, YYYY').format('YYYY-MM-DD 00:00:00') : moment(new Date()).format('DD MMMM, YYYY');
         const consumeUntil = new Date(formattedDate);
         await setDoc(doc(db, itemCollection, docRefId), {
-            productName: item.productName,
+            type: item.type,
+            strNo: item.strNo,
+            storeCode: item.storeCode,
+            product: item.product,
+            qty: item.qty,
+            unitOfMeasurement: item.unitOfMeasurement,
+            remarks: item.remarks,
             consumeUntil: Timestamp.fromDate(consumeUntil),
             batchCode: item.batchCode,
-            beginningQty: item.beginningQty,
-            receivedQty: item.receivedQty,
-            transferIn: item.transferIn,
-            transferOut: item.transferOut,
-            endingInventory: item.endingInventory,
-            dailyUsage: item.dailyUsage,
-            ordering: item.ordering,
-            unitOfMeasurement: item.unitOfMeasurement,
             createdAt: Timestamp.fromDate(new Date()),
         }).then(() => console.log('Document successfully written!'))
             .catch((error) => {
@@ -123,5 +122,87 @@ export default function FireStoreService() {
         await deleteDoc(doc(db, receivedCollection, id));
     };
 
-    return { getItems, getOne, saveItem, deleteItem, received, getReceivedWithItem, deleteReceivedItem };
-}
+    const getDropdownItems = async (category: string) => {
+        try {
+            const snapshot = await getDoc(doc(db, dropdownCollection, category));
+
+            if (!snapshot.exists()) {
+                return [];
+            }
+
+            const data = snapshot.data();
+            return Array.isArray(data?.items)
+                ? data.items.map((item: any, index: number) => ({
+                    id: item?.id || `${category}-${index}`,
+                    label: item?.label || '',
+                    value: item?.value || '',
+                }))
+                : [];
+        } catch (e) {
+            console.error('Error fetching dropdown items: ', e);
+            return [];
+        }
+    };
+
+    const saveDropdownItem = async (category: string, item: { id?: string; label: string; value: string }) => {
+        try {
+            const currentItems = await getDropdownItems(category);
+            const nextItems = item?.id
+                ? currentItems.map((currentItem) => currentItem.id === item.id
+                    ? { ...currentItem, label: item.label, value: item.value }
+                    : currentItem)
+                : [
+                    ...currentItems,
+                    {
+                        id: `${category}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                        label: item.label,
+                        value: item.value,
+                    },
+                ];
+
+            await setDoc(doc(db, dropdownCollection, category), {
+                category,
+                items: nextItems,
+            }, { merge: true });
+
+            return nextItems;
+        } catch (e) {
+            console.error('Error saving dropdown item: ', e);
+            return [];
+        }
+    };
+
+    const deleteDropdownItem = async (category: string, itemId: string) => {
+        try {
+            const currentItems = await getDropdownItems(category);
+            const nextItems = currentItems.filter((item) => item.id !== itemId);
+
+            await setDoc(doc(db, dropdownCollection, category), {
+                category,
+                items: nextItems,
+            }, { merge: true });
+
+            return nextItems;
+        } catch (e) {
+            console.error('Error deleting dropdown item: ', e);
+            return [];
+        }
+    };
+
+    return {
+        getItems,
+        getOne,
+        saveItem,
+        deleteItem,
+        received,
+        getReceivedWithItem,
+        deleteReceivedItem,
+        getDropdownItems,
+        saveDropdownItem,
+        deleteDropdownItem,
+    };
+};
+
+const FireStoreService = () => createFireStoreService();
+
+export default FireStoreService;

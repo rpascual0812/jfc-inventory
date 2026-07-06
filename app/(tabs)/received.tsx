@@ -2,13 +2,14 @@ import { collection, getDocs, query } from "firebase/firestore";
 import moment from "moment";
 import { useEffect, useState } from "react";
 import {
-    FlatList,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
+import ProductModal from "@/components/product-modal";
 import { db } from "../../FirebaseConfig";
 
 const getItemReceivedQty = (item: any) =>
@@ -98,6 +99,21 @@ export default function ReceivedScreen() {
     [],
   );
   const [totalReceived, setTotalReceived] = useState(0);
+  const [productModalVisible, setProductModalVisible] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<AggregatedReceived | null>(
+    null,
+  );
+
+  const toggleProductModal = (visible: boolean) => {
+    setProductModalVisible(visible);
+    if (!visible) {
+      setSelectedItem(null);
+    }
+  };
+
+  const productUpdated = () => {
+    setProductModalVisible(false);
+  };
 
   useEffect(() => {
     const fetchReceived = async () => {
@@ -132,13 +148,15 @@ export default function ReceivedScreen() {
   const renderItem = ({ item }: { item: AggregatedReceived }) => (
     <FancyListItem
       item={item}
-      onPress={() =>
+      onPress={() => {
+        setSelectedItem(item);
+        setProductModalVisible(true);
         console.log(
           `Pressed item ${item.itemId}`,
           item.item?.productName ?? item.itemId,
           `receivedQuantity: ${item.receivedQuantity}`,
-        )
-      }
+        );
+      }}
     />
   );
 
@@ -154,11 +172,11 @@ export default function ReceivedScreen() {
         contentContainerStyle={styles.listContainer}
       />
       <ProductModal
-        data={item}
+        data={selectedItem}
         isModalVisible={productModalVisible}
         closeModal={() => toggleProductModal(false)}
         submitted={() => productUpdated()}
-      ></ProductModal>
+      />
     </View>
   );
 }

@@ -19,17 +19,19 @@ interface ProductModalProps {
 
 interface Item {
     id: string | undefined;
-    productName: string;
-    consumeUntil: string;
-    batchCode: string;
-    beginningQty: number;
-    receivedQty: number;
-    transferIn: string;
-    transferOut: string;
-    endingInventory: number;
-    dailyUsage: number;
-    ordering: number;
+    type: string;
+
+    strNo: string | undefined;
+    storeCode: string | undefined;
+
+    product: string;
+    qty: number;
     unitOfMeasurement: string;
+
+    remarks: string | undefined;
+
+    consumeUntil: string | undefined;
+    batchCode: string;
 }
 
 const ProductModal = ({ data, isModalVisible, closeModal, submitted }: ProductModalProps) => {
@@ -42,9 +44,8 @@ const ProductModal = ({ data, isModalVisible, closeModal, submitted }: ProductMo
     const [typeValue, setTypeValue] = useState('receiving');
     const [typeList, setTypeList] = useState([
         { label: 'Receiving', value: 'receiving' },
-        { label: 'Transfer In', value: 'transferIn' },
-        { label: 'Transfer Out', value: 'transferOut' },
-        // { label: 'Ordering', value: 'ordering' }
+        { label: 'Transfer In', value: 'transfer-in' },
+        { label: 'Transfer Out', value: 'transfer-out' },
     ]);
 
     const [openStoreCode, setOpenStoreCode] = useState(false);
@@ -55,9 +56,9 @@ const ProductModal = ({ data, isModalVisible, closeModal, submitted }: ProductMo
         { label: 'Store 3', value: 'store003' },
         { label: 'Store 4', value: 'store004' },
         { label: 'Store 5', value: 'store005' },
-        { label: 'Store 6', value: 'Store 6' },
-        { label: 'Store 7', value: 'Store 7' },
-        { label: 'Store 8', value: 'Store 8' },
+        { label: 'Store 6', value: 'store006' },
+        { label: 'Store 7', value: 'store007' },
+        { label: 'Store 8', value: 'store008' },
     ]);
 
     const [openProduct, setOpenProduct] = useState(false);
@@ -79,6 +80,36 @@ const ProductModal = ({ data, isModalVisible, closeModal, submitted }: ProductMo
     useEffect(() => {
         reset(data || {});
     }, [data, reset]);
+
+    useEffect(() => {
+        const loadDropdownData = async () => {
+            const service = FireStoreService();
+            const [typeItems, productItems, unitItems, storeItems] = await Promise.all([
+                service.getDropdownItems('typeList'),
+                service.getDropdownItems('productList'),
+                service.getDropdownItems('unitOfMeasurementList'),
+                service.getDropdownItems('storeCode'),
+            ]);
+
+            if (typeItems.length) {
+                // Display the user-entered `value` but keep the slug (`label`) as the underlying value
+                setTypeList(typeItems.map((item: any) => ({ label: item.value, value: item.label })));
+            }
+            if (productItems.length) {
+                setProductList(productItems.map((item: any) => ({ label: item.value, value: item.label })));
+            }
+            if (unitItems.length) {
+                setUnitOfMeasurementList(unitItems.map((item: any) => ({ label: item.value, value: item.label })));
+            }
+            if (storeItems.length) {
+                setStoreList(storeItems.map((item: any) => ({ label: item.value, value: item.label })));
+            }
+        };
+
+        if (isModalVisible) {
+            loadDropdownData();
+        }
+    }, [isModalVisible]);
 
     const { width } = useWindowDimensions();
 
@@ -146,7 +177,7 @@ const ProductModal = ({ data, isModalVisible, closeModal, submitted }: ProductMo
 
                             <View style={{ marginTop: 30 }}></View>
 
-                            {['transferIn', 'transferOut'].includes(typeValue) &&
+                            {['transfer-in', 'transfer-out'].includes(typeValue) &&
                                 <>
                                     <Text style={modalStyles.label}>STR No.</Text>
                                     <Controller
@@ -171,7 +202,7 @@ const ProductModal = ({ data, isModalVisible, closeModal, submitted }: ProductMo
                                 </>
                             }
 
-                            {['transferIn', 'transferOut'].includes(typeValue) &&
+                            {['transfer-in', 'transfer-out'].includes(typeValue) &&
                                 <View style={{ zIndex: openStoreCode ? 1000 : 1 }}>
                                     <Text style={[modalStyles.label, { marginBottom: 10 }]}>Store Code</Text>
                                     <DropDownPicker
@@ -189,7 +220,7 @@ const ProductModal = ({ data, isModalVisible, closeModal, submitted }: ProductMo
                                 </View>
                             }
 
-                            {/* {['receiving', 'transferIn', 'transferOut'].includes(typeValue) &&
+                            {/* {['receiving', 'transfer-in', 'transfer-out'].includes(typeValue) &&
                                 <>
                                     <Text style={[modalStyles.label]}>Product Code</Text>
                                     <Controller
@@ -214,7 +245,7 @@ const ProductModal = ({ data, isModalVisible, closeModal, submitted }: ProductMo
                                 </>
                             } */}
 
-                            {['receiving', 'transferIn', 'transferOut'].includes(typeValue) &&
+                            {['receiving', 'transfer-in', 'transfer-out'].includes(typeValue) &&
                                 <View style={{ zIndex: openProduct ? 1000 : 1 }}>
                                     <Text style={modalStyles.label}>Product</Text>
                                     <DropDownPicker
@@ -232,7 +263,7 @@ const ProductModal = ({ data, isModalVisible, closeModal, submitted }: ProductMo
                                 </View>
                             }
 
-                            {['receiving', 'transferIn', 'transferOut'].includes(typeValue) &&
+                            {['receiving', 'transfer-in', 'transfer-out'].includes(typeValue) &&
                                 <>
                                     <Text style={modalStyles.label}>Qty</Text>
                                     <Controller
@@ -257,7 +288,7 @@ const ProductModal = ({ data, isModalVisible, closeModal, submitted }: ProductMo
                                 </>
                             }
 
-                            {['receiving', 'transferIn', 'transferOut'].includes(typeValue) &&
+                            {['receiving', 'transfer-in', 'transfer-out'].includes(typeValue) &&
                                 <View style={{ zIndex: openUnitOfMeasurement ? 1000 : 1 }}>
                                     <Text style={modalStyles.label}>Unit of Measurement</Text>
                                     <DropDownPicker
@@ -323,6 +354,8 @@ const ProductModal = ({ data, isModalVisible, closeModal, submitted }: ProductMo
                                         mode="date"
                                         onConfirm={handleConfirm}
                                         onCancel={hideDatePicker}
+                                        onDismiss={hideDatePicker}
+                                        onNeutralButtonPress={hideDatePicker}
                                     />
                                 </>
                             }
@@ -352,7 +385,7 @@ const ProductModal = ({ data, isModalVisible, closeModal, submitted }: ProductMo
                                 </>
                             }
 
-                            {['transferIn', 'transferOut'].includes(typeValue) &&
+                            {['transfer-in', 'transfer-out'].includes(typeValue) &&
                                 <>
                                     <Text style={modalStyles.label}>Remarks</Text>
                                     <Controller
